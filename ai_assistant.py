@@ -87,7 +87,6 @@ class AIAssistant:
         """
         Generate the system prompt for the AI assistant
         """
-        tools_info = json.dumps(self.ai_tools.get_tool_schemas(), indent=2)
         structure_info = json.dumps(repo_structure, indent=2)
         
         return f"""You are an AI coding assistant that helps complete programming tasks by analyzing and modifying code repositories through GitHub.
@@ -102,7 +101,11 @@ REPOSITORY STRUCTURE:
 
 AVAILABLE TOOLS:
 You have access to the following tools to interact with the repository:
-{tools_info}
+- get_directory: Retrieve directory contents (optional directory_path parameter)
+- read_file: Read file contents (requires file_path parameter)  
+- update_file: Update file contents (requires file_path and content parameters)
+- change_dir: Change current directory (requires directory_path parameter)
+- finish_task: Call when objective is complete (requires summary and success parameters)
 
 INSTRUCTIONS:
 1. Start by exploring the repository structure using get_directory
@@ -111,30 +114,52 @@ INSTRUCTIONS:
 4. Use change_dir to navigate between directories
 5. Always use update_file to save your changes (they will be committed to the branch: {self.branch_name})
 6. Think step by step and explain your reasoning
-7. When you're finished, clearly state that the task is complete
+7. When you have completed the objective, call finish_task with a summary of what was accomplished
 
-TOOL USAGE:
-To use a tool, respond with JSON in this format:
-{{"tool": "tool_name", "parameters": {{"param": "value"}}}}
+IMPORTANT: You must call finish_task when you are done. Do not just say the task is complete - use the finish_task function.
 
 Continue working until the objective is completed. Be thorough and methodical in your approach."""
 
-    def call_openai(self, messages: List[Dict[str, str]]) -> str:
+    def call_openai(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
-        Make a call to OpenAI API
+        Make a call to OpenAI API with function calling support
         """
         try:
+            # Convert tool schemas to OpenAI function format
+            tools = []
+            for tool_schema in self.ai_tools.get_tool_schemas():
+                tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool_schema["name"],
+                        "description": tool_schema["description"],
+                        "parameters": tool_schema["input_schema"]
+                    }
+                })
+            
             response = self.openai_client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
+                tools=tools,
+                tool_choice="auto"
             )
-            return response.choices[0].message.content
+            
+            return {
+                "message": response.choices[0].message,
+                "content": response.choices[0].message.content,
+                "tool_calls": response.choices[0].message.tool_calls
+            }
         except Exception as e:
-            return f"Error calling OpenAI API: {str(e)}"
+            return {
+                "error": f"Error calling OpenAI API: {str(e)}",
+                "content": f"Error calling OpenAI API: {str(e)}",
+                "tool_calls": None
+            }
     
     def parse_tool_call(self, response: str) -> Optional[Dict[str, Any]]:
         """
-        Parse tool call from AI response
+        Parse tool call from AI response - DEPRECATED
+        This method is kept for backward compatibility but is no longer used
         """
         try:
             # Look for JSON in the response
@@ -215,13 +240,43 @@ Continue working until the objective is completed. Be thorough and methodical in
             
             # Get AI response
             ai_response = self.call_openai(self.conversation_history)
-            print(f"AI Response: {ai_response}")
             
-            # Add AI response to history
-            self.conversation_history.append({"role": "assistant", "content": ai_response})
+            # Check for API errors
+            if "error" in ai_response:
+                print(f"❌ API Error: {ai_response['error']}")
+                return {
+                    "success": False,
+                    "error": ai_response["error"],
+                    "iterations": iteration
+                }
             
-            # Check if AI thinks task is complete
-            if any(phrase in ai_response.lower() for phrase in [
+            content = ai_response.get("content", "")
+            tool_calls = ai_response.get("tool_calls")
+            message = ai_response.get("message")
+            
+            # Print response - handle both text and tool calls
+            if content:
+                print(f"AI Response: {content}")
+            elif tool_calls:
+                print(f"AI Response: [Making {len(tool_calls)} tool call(s)]")
+                for tool_call in tool_calls:
+                    print(f"  - Calling {tool_call.function.name} with {tool_call.function.arguments}")
+            else:
+                print("AI Response: [No content or tool calls]")
+            
+            # Add AI response to history (handle None content properly)
+            assistant_message = {
+                "role": "assistant"
+            }
+            if content:
+                assistant_message["content"] = content
+            if tool_calls:
+                assistant_message["tool_calls"] = tool_calls
+            
+            self.conversation_history.append(assistant_message)
+            
+            # Check if AI thinks task is complete (only check if there's actual content)
+            if content and any(phrase in content.lower() for phrase in [
                 "task is complete", "objective is complete", "finished", "done"
             ]):
                 print("\n🎉 AI Assistant has completed the task!")
@@ -234,17 +289,12 @@ Continue working until the objective is completed. Be thorough and methodical in
                         self.repo_owner, self.repo_name
                     )
                     pr_title = f"AI Assistant: {objective}"
-                    pr_body = f"""This pull request was created by the AI Assistant.
-
-**Objective:** {objective}
-
-**Branch:** {working_branch}
-**Iterations:** {iteration}
-
-**AI Summary:**
-{ai_response}
-
-Please review the changes before merging."""
+                    
+                    # Get list of modified files
+                    modified_files = self.ai_tools.get_modified_files()
+                    
+                    # Create structured PR description
+                    pr_body = self._create_pr_description(objective, working_branch, iteration, content, modified_files)
                     
                     pr_url = self.github_client.create_pull_request(
                         self.repo_owner, self.repo_name, 
@@ -262,30 +312,78 @@ Please review the changes before merging."""
                 return {
                     "success": True,
                     "message": "Task completed successfully",
-                    "final_response": ai_response,
+                    "final_response": content,
                     "iterations": iteration,
                     "branch": working_branch,
                     "pull_request_url": pr_url,
                     "used_main_branch": not branch_created
                 }
             
-            # Parse and execute tool call
-            tool_call = self.parse_tool_call(ai_response)
-            
-            if tool_call:
-                tool_name = tool_call.get("tool")
-                parameters = tool_call.get("parameters", {})
-                
-                print(f"Executing tool: {tool_name} with parameters: {parameters}")
-                
-                # Execute the tool
-                result = self.ai_tools.execute_tool(tool_name, parameters)
-                print(f"Tool result: {result}")
-                
-                # Add tool result to conversation
-                result_message = f"Tool execution result: {json.dumps(result, indent=2)}"
-                self.conversation_history.append({"role": "user", "content": result_message})
-                
+            # Handle tool calls using proper OpenAI format
+            if tool_calls:
+                for tool_call in tool_calls:
+                    tool_name = tool_call.function.name
+                    try:
+                        parameters = json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError:
+                        parameters = {}
+                    
+                    print(f"Executing tool: {tool_name} with parameters: {parameters}")
+                    
+                    # Execute the tool
+                    result = self.ai_tools.execute_tool(tool_name, parameters)
+                    print(f"Tool result: {result}")
+                    
+                    # Check if this is the finish_task tool call
+                    if tool_name == "finish_task" and result.get("task_completed"):
+                        print("\n🎉 AI Assistant has completed the task using finish_task!")
+                        
+                        # Create pull request if requested and we created a branch
+                        pr_url = None
+                        if create_pr and branch_created:
+                            print("Creating pull request...")
+                            default_branch = self.github_client.get_default_branch(
+                                self.repo_owner, self.repo_name
+                            )
+                            pr_title = f"AI Assistant: {objective}"
+                            
+                            # Get list of modified files from the result
+                            modified_files = result.get("modified_files", [])
+                            ai_summary = result.get("summary", "Task completed successfully")
+                            
+                            # Create structured PR description
+                            pr_body = self._create_pr_description(objective, working_branch, iteration, ai_summary, modified_files)
+                            
+                            pr_url = self.github_client.create_pull_request(
+                                self.repo_owner, self.repo_name, 
+                                working_branch, default_branch,
+                                pr_title, pr_body
+                            )
+                            
+                            if pr_url:
+                                print(f"✅ Pull request created: {pr_url}")
+                            else:
+                                print("⚠️  Could not create pull request")
+                        elif not branch_created:
+                            print("⚠️  Changes were made directly to main branch - no PR created")
+                        
+                        return {
+                            "success": result.get("objective_success", True),
+                            "message": "Task completed successfully using finish_task",
+                            "final_response": result.get("summary", "Task completed"),
+                            "iterations": iteration,
+                            "branch": working_branch,
+                            "pull_request_url": pr_url,
+                            "used_main_branch": not branch_created,
+                            "modified_files": result.get("modified_files", [])
+                        }
+                    
+                    # Add tool result to conversation using proper format
+                    self.conversation_history.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result, indent=2)
+                    })
             else:
                 # No tool call found, ask AI to continue
                 continue_message = "Please continue with the next step or use a tool to proceed."
@@ -311,3 +409,89 @@ Please review the changes before merging."""
             summary += f"{i+1}. {role}: {content}\n\n"
         
         return summary 
+    
+    def _create_pr_description(self, objective: str, branch: str, iterations: int, 
+                             ai_summary: str, modified_files: List[Dict[str, str]]) -> str:
+        """
+        Create a structured PR description with file changes
+        """
+        # Build file changes section
+        file_changes_section = ""
+        if modified_files:
+            file_changes_section = "\n**Files Changed:**\n"
+            for file_info in modified_files:
+                file_path = file_info["file_path"]
+                action = file_info["action"]
+                file_changes_section += f"• `{file_path}` - {action}\n"
+        else:
+            file_changes_section = "\n**Files Changed:** None\n"
+        
+        # Ask AI to provide structured change details if we have modified files
+        change_details = ""
+        if modified_files:
+            if ai_summary:
+                # Create a follow-up prompt to get structured change details
+                structured_prompt = f"""Based on the work you just completed, please provide a detailed bullet-point summary of what was changed in each file. 
+
+Objective: {objective}
+Files modified: {[f['file_path'] for f in modified_files]}
+
+For each file, explain:
+- What specific changes were made
+- Why these changes were necessary 
+- How they contribute to the objective
+
+Format as:
+• filename.ext
+  - Specific change 1
+  - Specific change 2
+  - etc.
+
+Be detailed and specific about the actual code/content changes made."""
+                
+                try:
+                    detailed_response = self.call_openai([
+                        {"role": "system", "content": "You are summarizing the specific changes you just made to files. Be detailed and technical about what was actually modified."},
+                        {"role": "user", "content": structured_prompt}
+                    ])
+                    
+                    if detailed_response.get("content"):
+                        change_details = f"\n**What Was Changed:**\n{detailed_response['content']}\n"
+                    elif detailed_response.get("error"):
+                        # API error, use fallback
+                        change_details = f"\n**What Was Changed:**\n"
+                        for file_info in modified_files:
+                            change_details += f"• `{file_info['file_path']}` - Updated to complete the objective. {ai_summary}\n"
+                        change_details += "\n"
+                    else:
+                        # No content but no error, create basic detail
+                        change_details = f"\n**What Was Changed:**\n"
+                        for file_info in modified_files:
+                            change_details += f"• `{file_info['file_path']}` - {ai_summary}\n"
+                        change_details += "\n"
+                except Exception as e:
+                    # If the detailed summary fails, create a fallback with available info
+                    change_details = f"\n**What Was Changed:**\n"
+                    for file_info in modified_files:
+                        change_details += f"• `{file_info['file_path']}` - Updated to complete the objective: {ai_summary}\n"
+                    change_details += "\n"
+            else:
+                # No AI summary available, create a basic description
+                change_details = f"\n**What Was Changed:**\n"
+                for file_info in modified_files:
+                    change_details += f"• `{file_info['file_path']}` - File was {file_info['action']} to complete the objective\n"
+                change_details += "\n"
+        elif ai_summary:
+            change_details = f"\n**Summary:**\n{ai_summary}\n"
+        
+        # Build complete PR description
+        pr_body = f"""This pull request was created by the AI Assistant.
+
+**Objective:** {objective}
+
+**Branch:** {branch}
+**Iterations:** {iterations}
+{file_changes_section}{change_details}
+Please review the changes before merging."""
+        
+        return pr_body

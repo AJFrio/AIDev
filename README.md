@@ -6,7 +6,7 @@ An intelligent coding assistant that connects to GitHub repositories and uses Op
 
 - 🔗 **GitHub Integration**: Connects to any GitHub repository via the GitHub API
 - 🤖 **AI-Powered**: Uses OpenAI's GPT models for intelligent code analysis and generation
-- 🛠️ **Tool-Based Architecture**: Provides the AI with specific tools to read, navigate, and modify code
+- 🛠️ **Function Calling**: Uses OpenAI's native function calling for reliable tool execution
 - 📁 **Repository Navigation**: Can explore directory structures and understand codebase organization
 - ✏️ **File Editing**: Can read and modify files directly in GitHub repositories
 - 🔄 **Iterative Approach**: Works through tasks step-by-step until completion
@@ -134,14 +134,15 @@ python main.py my-repo "Debug the authentication flow" --verbose
 
 ## How It Works
 
-1. **Branch Creation**: Creates a new branch (auto-named with timestamp or custom name)
+1. **Branch Creation**: Creates a new branch (auto-named with descriptive name or custom name)
 2. **Repository Analysis**: Fetches the repository structure from the new branch
 3. **AI Planning**: An OpenAI model analyzes the objective and creates a plan
-4. **Tool Execution**: The AI uses provided tools to:
+4. **Function Calling**: The AI uses OpenAI's native function calling to execute tools:
    - Navigate directories (`change_dir`)
    - Read file contents (`read_file`)
    - List directory contents (`get_directory`)
    - Update files (`update_file`)
+   - Signal completion (`finish_task`)
 5. **Iterative Process**: The AI continues working until the objective is complete
 6. **Safe Commits**: All changes are committed to the dedicated branch
 7. **Pull Request**: Automatically creates a PR for code review (unless `--no-pr` is used)
@@ -182,6 +183,9 @@ Updates a file with new content and commits the changes to the working branch.
 
 ### `change_dir`
 Changes the current working directory for navigation.
+
+### `finish_task`
+Signals task completion and exits the coding loop. Requires a summary of what was accomplished and success status.
 
 ## Architecture
 

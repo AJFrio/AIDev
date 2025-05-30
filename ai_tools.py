@@ -9,6 +9,7 @@ class AITools:
         self.github_client = github_client
         self.current_directory = ""
         self.branch = branch
+        self.modified_files = []  # Track files that were modified
         
     def get_directory(self, directory_path: str = "") -> Dict[str, Any]:
         """
@@ -112,6 +113,13 @@ class AITools:
             )
             
             if success:
+                # Track the file change
+                self.modified_files.append({
+                    "file_path": full_path,
+                    "action": "updated",
+                    "branch": self.branch
+                })
+                
                 return {
                     "success": True,
                     "message": f"Successfully updated {full_path} on branch {self.branch}",
@@ -247,8 +255,44 @@ class AITools:
                     },
                     "required": ["directory_path"]
                 }
+            },
+            {
+                "name": "finish_task",
+                "description": "Call this function when you have completed the objective and are ready to finish. Provide a summary of what was accomplished.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "A brief summary of what was accomplished and any important notes"
+                        },
+                        "success": {
+                            "type": "boolean",
+                            "description": "Whether the objective was successfully completed"
+                        }
+                    },
+                    "required": ["summary", "success"]
+                }
             }
         ]
+    
+    def get_modified_files(self) -> List[Dict[str, str]]:
+        """
+        Get the list of files that were modified during this session
+        """
+        return self.modified_files.copy()
+    
+    def finish_task(self, summary: str, success: bool = True) -> Dict[str, Any]:
+        """
+        Signal that the task is complete
+        """
+        return {
+            "success": True,
+            "task_completed": True,
+            "summary": summary,
+            "objective_success": success,
+            "modified_files": self.modified_files.copy()
+        }
     
     def execute_tool(self, tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -263,6 +307,11 @@ class AITools:
             return self.update_file(parameters["file_path"], parameters["content"])
         elif tool_name == "change_dir":
             return self.change_dir(parameters["directory_path"])
+        elif tool_name == "finish_task":
+            return self.finish_task(
+                parameters["summary"], 
+                parameters.get("success", True)
+            )
         else:
             return {
                 "success": False,
