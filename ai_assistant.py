@@ -1,27 +1,45 @@
 import json
-import openai
+from openai import OpenAI, AzureOpenAI
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import re
 from config import Config
 from github_client import GitHubClient
 from ai_tools import AITools
 
 class AIAssistant:
     def __init__(self, repo_owner: str, repo_name: str, github_token: Optional[str] = None, 
-                 branch_name: Optional[str] = None):
+                 branch_name: Optional[str] = None, objective: Optional[str] = None):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         
-        # Initialize OpenAI client
-        openai.api_key = Config.OPENAI_API_KEY
+        # Initialize OpenAI client (Azure or regular)
+        if Config.use_azure_openai():
+            print("🔷 Using Azure OpenAI")
+            self.openai_client = AzureOpenAI(
+                api_key=Config.AZURE_OPENAI_API_KEY,
+                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+                api_version=Config.AZURE_OPENAI_API_VERSION
+            )
+            self.model_name = Config.AZURE_OPENAI_DEPLOYMENT
+        else:
+            print("🟢 Using OpenAI")
+            if not Config.OPENAI_API_KEY:
+                raise ValueError("No OpenAI configuration found. Please set AZURE_OPENAI_* or OPENAI_API_KEY environment variables.")
+            self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
+            self.model_name = Config.OPENAI_MODEL
         
         # Initialize GitHub client
         self.github_client = GitHubClient(github_token)
         
         # Generate branch name if not provided
         if not branch_name:
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            self.branch_name = f"ai-assistant-{timestamp}"
+            if objective:
+                self.branch_name = self._generate_branch_name(objective)
+            else:
+                # Fallback to timestamp if no objective provided
+                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                self.branch_name = f"ai-dev/task-{timestamp}"
         else:
             self.branch_name = branch_name
         
@@ -31,6 +49,40 @@ class AIAssistant:
         # Conversation history
         self.conversation_history = []
         
+    def _generate_branch_name(self, objective: str) -> str:
+        """
+        Generate a descriptive branch name from the objective
+        Format: ai-dev/<5-word-summary>
+        """
+        # Remove common words and clean the objective
+        common_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'}
+        
+        # Clean and split the objective
+        words = re.findall(r'\b[a-zA-Z]+\b', objective.lower())
+        
+        # Filter out common words and keep meaningful ones
+        meaningful_words = [word for word in words if word not in common_words and len(word) > 2]
+        
+        # Take first 5 meaningful words
+        summary_words = meaningful_words[:5]
+        
+        # If we don't have enough meaningful words, add some original words
+        if len(summary_words) < 3:
+            original_words = [word for word in words if word not in summary_words and len(word) > 1]
+            summary_words.extend(original_words[:5-len(summary_words)])
+        
+        # Join with dashes and create branch name
+        if summary_words:
+            summary = '-'.join(summary_words)
+            # Ensure it's not too long (Git branch names should be reasonable)
+            if len(summary) > 50:
+                summary = summary[:47] + "..."
+            return f"ai-dev/{summary}"
+        else:
+            # Fallback if no good words found
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            return f"ai-dev/task-{timestamp}"
+
     def get_system_prompt(self, objective: str, repo_structure: List[Dict[str, Any]]) -> str:
         """
         Generate the system prompt for the AI assistant
@@ -72,11 +124,9 @@ Continue working until the objective is completed. Be thorough and methodical in
         Make a call to OpenAI API
         """
         try:
-            response = openai.chat.completions.create(
-                model=Config.OPENAI_MODEL,
+            response = self.openai_client.chat.completions.create(
+                model=self.model_name,
                 messages=messages,
-                max_tokens=2000,
-                temperature=0.1
             )
             return response.choices[0].message.content
         except Exception as e:

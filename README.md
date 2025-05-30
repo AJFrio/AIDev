@@ -43,11 +43,36 @@ An intelligent coding assistant that connects to GitHub repositories and uses Op
    - `public_repo` (Access public repositories)
 3. Copy the token and add it to your `.env` file
 
-## OpenAI API Key Setup
+## Azure OpenAI Setup (Preferred)
+
+If you're using Azure OpenAI Service:
+
+1. Go to your Azure OpenAI resource in the Azure portal
+2. Copy the following values:
+   - **Endpoint**: Your resource endpoint URL
+   - **API Key**: One of your access keys
+   - **Deployment Name**: The name of your deployed model
+3. Add them to your `.env` file:
+   ```
+   AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
+   AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+   AZURE_OPENAI_DEPLOYMENT=gpt-4
+   AZURE_OPENAI_API_VERSION=2024-02-15-preview
+   ```
+
+## OpenAI API Key Setup (Alternative)
+
+If you're using regular OpenAI instead of Azure:
 
 1. Go to [OpenAI API Keys](https://platform.openai.com/api-keys)
 2. Create a new API key
-3. Copy the key and add it to your `.env` file
+3. Copy the key and add it to your `.env` file:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_MODEL=gpt-4-turbo-preview
+   ```
+
+**Note:** The system will automatically use Azure OpenAI if configured, otherwise it falls back to regular OpenAI.
 
 ## Usage
 

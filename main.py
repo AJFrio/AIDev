@@ -43,7 +43,7 @@ Examples:
     parser.add_argument(
         "--max-iterations",
         type=int,
-        default=20,
+        default=100,
         help="Maximum number of iterations for the AI assistant (default: 20)"
     )
     
@@ -76,8 +76,19 @@ Examples:
         print("Error: GitHub token is required. Set GITHUB_TOKEN environment variable or use --github-token")
         sys.exit(1)
     
-    if not Config.OPENAI_API_KEY:
-        print("Error: OpenAI API key is required. Set OPENAI_API_KEY environment variable")
+    # Check for OpenAI configuration (Azure or regular)
+    if Config.use_azure_openai():
+        if not Config.AZURE_OPENAI_API_KEY or not Config.AZURE_OPENAI_ENDPOINT:
+            print("Error: Azure OpenAI configuration incomplete.")
+            print("Required: AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT")
+            print("Optional: AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_API_VERSION")
+            sys.exit(1)
+        print(f"✅ Azure OpenAI configured (Endpoint: {Config.AZURE_OPENAI_ENDPOINT})")
+    elif Config.OPENAI_API_KEY:
+        print("✅ OpenAI configured")
+    else:
+        print("Error: No OpenAI configuration found.")
+        print("Either set AZURE_OPENAI_* variables or OPENAI_API_KEY")
         sys.exit(1)
     
     # Initialize the AI assistant
@@ -86,7 +97,8 @@ Examples:
             repo_owner=args.owner,
             repo_name=args.repo_name,
             github_token=args.github_token,
-            branch_name=args.branch
+            branch_name=args.branch,
+            objective=args.objective
         )
         
         print("🤖 AI Coding Assistant")
