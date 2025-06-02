@@ -1,10 +1,11 @@
-# AI Coding Assistant with GitHub Integration
+# AI Coding Assistant with GitHub and Jira Integration
 
-An intelligent coding assistant that connects to GitHub repositories and uses OpenAI's language models to help complete programming tasks, fix bugs, and implement features.
+An intelligent coding assistant that connects to GitHub repositories and Jira tickets, using OpenAI's language models to help complete programming tasks, fix bugs, and implement features automatically.
 
 ## Features
 
 - 🔗 **GitHub Integration**: Connects to any GitHub repository via the GitHub API
+- 🎫 **Jira Integration**: Automatically processes Jira tickets with "UseAI" label
 - 🤖 **AI-Powered**: Uses OpenAI's GPT models for intelligent code analysis and generation
 - 🛠️ **Function Calling**: Uses OpenAI's native function calling for reliable tool execution
 - 📁 **Repository Navigation**: Can explore directory structures and understand codebase organization
@@ -12,6 +13,7 @@ An intelligent coding assistant that connects to GitHub repositories and uses Op
 - 🔄 **Iterative Approach**: Works through tasks step-by-step until completion
 - 🌿 **Branch Safety**: Creates dedicated branches for all changes, protecting your main branch
 - 🔀 **Pull Request Creation**: Automatically creates pull requests for review
+- 🎯 **Automated Workflow**: Process multiple Jira tickets automatically
 
 ## Installation
 
@@ -33,7 +35,10 @@ An intelligent coding assistant that connects to GitHub repositories and uses Op
    
    Edit `.env` and add your API keys:
    - `GITHUB_TOKEN`: Your GitHub personal access token
-   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `OPENAI_API_KEY`: Your OpenAI API key (or Azure OpenAI credentials)
+   - `JIRA_URL`: Your Jira instance URL (optional, for Jira integration)
+   - `JIRA_USERNAME`: Your Jira username (optional)
+   - `JIRA_TOKEN`: Your Jira API token (optional)
 
 ## GitHub Token Setup
 
@@ -74,12 +79,40 @@ If you're using regular OpenAI instead of Azure:
 
 **Note:** The system will automatically use Azure OpenAI if configured, otherwise it falls back to regular OpenAI.
 
+## Jira Integration Setup (Optional)
+
+To enable automatic processing of Jira tickets:
+
+1. Go to your Jira instance → Profile → Personal Access Tokens
+2. Create a new API token
+3. Add the following to your `.env` file:
+   ```
+   JIRA_URL=https://your-company.atlassian.net
+   JIRA_USERNAME=your_email@company.com
+   JIRA_TOKEN=your_jira_api_token_here
+   ```
+
+### How Jira Integration Works
+
+1. **Label-Based Processing**: The system looks for tickets with the "UseAI" label
+2. **Epic as Repository**: Uses the epic name associated with the ticket as the repository name
+3. **Title + Description as Objective**: Combines the ticket title and description to create the AI objective
+4. **Automatic Processing**: Processes all matching tickets in batch mode
+5. **Bidirectional Linking**: Automatically adds comments to Jira tickets with GitHub PR links
+
 ## Usage
 
 ### Basic Usage
 
 ```bash
+# Process a specific repository with an objective
 python main.py <repo-name> "<objective>"
+
+# Process all Jira tickets with UseAI label
+python main.py --jira-mode
+
+# Test Jira connection
+python main.py --test-jira
 ```
 
 **🔒 Safety First:** The assistant automatically creates a new branch for all changes, keeping your main branch safe!
@@ -109,11 +142,13 @@ python main.py my-app "Fix typos" --no-pr
 ### Command Line Options
 
 - `--owner`: Specify repository owner (default: AJFrio)
-- `--max-iterations`: Set maximum iterations (default: 20)
+- `--max-iterations`: Set maximum iterations (default: 100)
 - `--github-token`: Override GitHub token from command line
 - `--branch`: Custom branch name (default: auto-generated with timestamp)
 - `--no-pr`: Skip creating a pull request when finished
 - `--verbose`: Enable detailed output
+- `--jira-mode`: Process all Jira tickets with UseAI label
+- `--test-jira`: Test Jira connection and exit
 - `--help`: Show help message
 
 ### Advanced Usage
@@ -131,6 +166,27 @@ python main.py my-repo "Quick fix for production" --branch hotfix/urgent --no-pr
 # Use verbose mode for debugging
 python main.py my-repo "Debug the authentication flow" --verbose
 ```
+
+### Jira Integration Examples
+
+```bash
+# Process all Jira tickets with UseAI label
+python main.py --jira-mode
+
+# Process Jira tickets with verbose output
+python main.py --jira-mode --verbose
+
+# Process Jira tickets without creating pull requests
+python main.py --jira-mode --no-pr
+
+# Process Jira tickets with a custom branch name for all tickets
+python main.py --jira-mode --branch feature/jira-automation
+
+# Test your Jira connection
+python main.py --test-jira
+```
+
+**Note**: When using `--jira-mode`, branch names automatically include the ticket number (e.g., `ai-dev-REP-123-20241201-143022`) unless you specify a custom branch with `--branch`.
 
 ## How It Works
 
@@ -150,7 +206,7 @@ python main.py my-repo "Debug the authentication flow" --verbose
 ## Branch and PR Management
 
 ### Automatic Branch Creation
-- Default branch name: `ai-assistant-YYYYMMDD-HHMMSS`
+- Default branch name: `ai-dev-YYYYMMDD-HHMMSS`
 - Custom branch names can be specified with `--branch`
 - Branches are created from the repository's default branch
 
@@ -170,7 +226,7 @@ python main.py my-repo "Debug the authentication flow" --verbose
 
 ## Available Tools
 
-The AI assistant has access to these tools:
+The AI Dev has access to these tools:
 
 ### `get_directory`
 Retrieves the contents of the current directory, showing files and subdirectories.
@@ -240,7 +296,7 @@ The assistant includes comprehensive error handling for:
 
 ### Standard Workflow
 1. Run: `python main.py my-repo "Add validation to user input"`
-2. Assistant creates branch: `ai-assistant-20241201-143022`
+2. Assistant creates branch: `ai-dev-20241201-143022`
 3. AI makes changes and commits to the branch
 4. Pull request created automatically
 5. Review and merge the PR
@@ -277,13 +333,47 @@ For issues and questions:
 3. Ensure your API keys are correctly configured
 4. Verify repository permissions
 
+## Jira Workflow
+
+### Setting Up Jira Tickets for AI Processing
+
+1. **Create a Jira Ticket**: Create any type of ticket (Story, Task, Bug, etc.)
+2. **Add UseAI Label**: Add the label "UseAI" to the ticket
+3. **Link to Epic**: Associate the ticket with an Epic (the Epic name will be used as the repository name)
+4. **Add Description**: Provide a clear title and description of what needs to be done
+5. **Run AI Processing**: Use `python main.py --jira-mode` to process all UseAI tickets
+
+### Example Jira Ticket Setup
+
+```
+Title: Add input validation to user registration form
+Epic: user-management-system
+Labels: UseAI, frontend, validation
+Description: 
+Add client-side and server-side validation to the user registration form.
+Requirements:
+- Email format validation
+- Password strength requirements
+- Confirm password matching
+- Display appropriate error messages
+```
+
+This will automatically:
+- Use "user-management-system" as the repository name
+- Create the objective from title + description
+- Process the ticket and create a pull request
+- Add a comment to the Jira ticket with the PR link
+- Create bidirectional linking between Jira and GitHub
+
 ## Future Enhancements
 
-- [ ] JIRA integration for ticket management
+- [x] JIRA integration for ticket management
 - [ ] Support for creating new files
 - [ ] Multi-repository operations
 - [ ] Custom tool plugins
 - [ ] Web interface
 - [ ] Batch processing capabilities
 - [ ] Draft PR support
-- [ ] Merge conflict resolution 
+- [ ] Merge conflict resolution
+- [ ] Jira ticket status updates
+- [ ] Custom Jira field mapping 

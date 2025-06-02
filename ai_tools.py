@@ -101,7 +101,7 @@ class AITools:
                 }
             
             # Update the file
-            commit_message = f"AI Assistant: Update {full_path}"
+            commit_message = f"AI Dev: Update {full_path}"
             success = self.github_client.update_file_content(
                 self.repo_owner,
                 self.repo_name,

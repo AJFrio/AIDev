@@ -85,7 +85,7 @@ class AIAssistant:
 
     def get_system_prompt(self, objective: str, repo_structure: List[Dict[str, Any]]) -> str:
         """
-        Generate the system prompt for the AI assistant
+        Generate the system prompt for the AI Dev
         """
         structure_info = json.dumps(repo_structure, indent=2)
         
@@ -181,9 +181,9 @@ Continue working until the objective is completed. Be thorough and methodical in
     def execute_objective(self, objective: str, max_iterations: int = 20, 
                          create_pr: bool = True, fallback_to_main: bool = False) -> Dict[str, Any]:
         """
-        Execute the given objective using the AI assistant
+        Execute the given objective using the AI Dev
         """
-        print(f"Starting AI Assistant for repository: {self.repo_owner}/{self.repo_name}")
+        print(f"Starting AI Dev for repository: {self.repo_owner}/{self.repo_name}")
         print(f"Objective: {objective}")
         print(f"Working Branch: {self.branch_name}")
         print("-" * 50)
@@ -279,7 +279,7 @@ Continue working until the objective is completed. Be thorough and methodical in
             if content and any(phrase in content.lower() for phrase in [
                 "task is complete", "objective is complete", "finished", "done"
             ]):
-                print("\n🎉 AI Assistant has completed the task!")
+                print("\n🎉 AI Dev has completed the task!")
                 
                 # Create pull request if requested and we created a branch
                 pr_url = None
@@ -288,7 +288,7 @@ Continue working until the objective is completed. Be thorough and methodical in
                     default_branch = self.github_client.get_default_branch(
                         self.repo_owner, self.repo_name
                     )
-                    pr_title = f"AI Assistant: {objective}"
+                    pr_title = f"AI Dev: {objective}"
                     
                     # Get list of modified files
                     modified_files = self.ai_tools.get_modified_files()
@@ -336,7 +336,7 @@ Continue working until the objective is completed. Be thorough and methodical in
                     
                     # Check if this is the finish_task tool call
                     if tool_name == "finish_task" and result.get("task_completed"):
-                        print("\n🎉 AI Assistant has completed the task using finish_task!")
+                        print("\n🎉 AI Dev has completed the task using finish_task!")
                         
                         # Create pull request if requested and we created a branch
                         pr_url = None
@@ -345,7 +345,7 @@ Continue working until the objective is completed. Be thorough and methodical in
                             default_branch = self.github_client.get_default_branch(
                                 self.repo_owner, self.repo_name
                             )
-                            pr_title = f"AI Assistant: {objective}"
+                            pr_title = f"AI Dev: {objective}"
                             
                             # Get list of modified files from the result
                             modified_files = result.get("modified_files", [])
@@ -485,7 +485,7 @@ Be detailed and specific about the actual code/content changes made."""
             change_details = f"\n**Summary:**\n{ai_summary}\n"
         
         # Build complete PR description
-        pr_body = f"""This pull request was created by the AI Assistant.
+        pr_body = f"""This pull request was created by the AI Dev.
 
 **Objective:** {objective}
 
