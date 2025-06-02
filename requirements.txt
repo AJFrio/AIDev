@@ -2,4 +2,6 @@ requests
 openai[azure]
 python-dotenv
 gitpython
-pydantic 
+pydantic
+flask
+atlassian-python-api 

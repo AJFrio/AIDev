@@ -12,6 +12,7 @@ An intelligent coding assistant that connects to GitHub repositories and uses Op
 - 🔄 **Iterative Approach**: Works through tasks step-by-step until completion
 - 🌿 **Branch Safety**: Creates dedicated branches for all changes, protecting your main branch
 - 🔀 **Pull Request Creation**: Automatically creates pull requests for review
+- 🎫 **Jira Integration**: Webhook-based automation for Jira tickets (see [JIRA_INTEGRATION.md](JIRA_INTEGRATION.md))
 
 ## Installation
 
@@ -277,9 +278,20 @@ For issues and questions:
 3. Ensure your API keys are correctly configured
 4. Verify repository permissions
 
+## Jira Integration
+
+The AI Assistant now includes full Jira integration! See [JIRA_INTEGRATION.md](JIRA_INTEGRATION.md) for detailed setup instructions.
+
+**Key Features:**
+- Automatic processing of Jira tickets ≤ 5 story points
+- Uses ticket description as AI objective
+- Uses first label as repository name
+- Posts status updates and PR links back to Jira
+- Webhook-based real-time automation
+
 ## Future Enhancements
 
-- [ ] JIRA integration for ticket management
+- [x] ~~JIRA integration for ticket management~~ ✅ **COMPLETED**
 - [ ] Support for creating new files
 - [ ] Multi-repository operations
 - [ ] Custom tool plugins
