@@ -109,6 +109,8 @@ You have access to the following tools to interact with the repository:
 - get_directory: Retrieve directory contents (optional directory_path parameter)
 - read_file: Read file contents (requires file_path parameter)  
 - update_file: Update file contents (requires file_path and content parameters)
+- add_file: Create new files (requires file_path and content parameters)
+- make_dir: Create new directories (requires directory_path parameter)
 - change_dir: Change current directory (requires directory_path parameter)
 - finish_task: Call when objective is complete (requires summary and success parameters)
 

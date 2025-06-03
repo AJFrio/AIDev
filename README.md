@@ -368,6 +368,12 @@ Reads the complete contents of a specified file.
 ### `update_file`
 Updates a file with new content and commits the changes to the working branch.
 
+### `add_file`
+Creates a new file with specified content. Prevents overwriting existing files.
+
+### `make_dir`
+Creates a new directory by adding a `.gitkeep` file to maintain the directory structure in Git. This is necessary because GitHub doesn't support empty directories.
+
 ### `change_dir`
 Changes the current working directory for navigation.
 
@@ -443,8 +449,8 @@ The assistant includes comprehensive error handling for:
 
 - Requires valid GitHub and OpenAI API access
 - Limited by OpenAI's token limits per request
-- Cannot create new files (only read and update existing ones)
 - Works with text files only (no binary file support)
+- Empty directories require `.gitkeep` files due to Git limitations
 - Subject to GitHub API rate limits
 
 ## Workflow Examples

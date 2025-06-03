@@ -199,6 +199,81 @@ class AITools:
                 "error": str(e)
             }
     
+    def make_dir(self, directory_path: str) -> Dict[str, Any]:
+        """
+        Create a new directory by adding a .gitkeep file
+        
+        Note: GitHub doesn't allow empty directories, so we create a .gitkeep file
+        to establish the directory structure. This is a common Git convention.
+        """
+        try:
+            # Handle relative and absolute paths
+            if directory_path.startswith("/"):
+                # Absolute path - strip leading slash
+                full_path = directory_path.strip("/")
+            elif self.current_directory and not directory_path.startswith(self.current_directory):
+                # Relative path from current directory
+                full_path = f"{self.current_directory}/{directory_path}".strip("/")
+            else:
+                # Already a full path or no current directory
+                full_path = directory_path
+            
+            # Check if directory already exists by trying to get its contents
+            existing_contents = self.github_client.get_repository_structure(
+                self.repo_owner,
+                self.repo_name,
+                full_path,
+                self.branch
+            )
+            
+            if existing_contents is not None:
+                return {
+                    "success": False,
+                    "error": f"Directory already exists: {full_path}"
+                }
+            
+            # Create the directory by adding a .gitkeep file
+            gitkeep_path = f"{full_path}/.gitkeep"
+            gitkeep_content = "# This file keeps the directory in Git\n# You can safely delete this file if the directory has other content\n"
+            
+            commit_message = f"AI Dev: Create directory {full_path}"
+            success = self.github_client.update_file_content(
+                self.repo_owner,
+                self.repo_name,
+                gitkeep_path,
+                gitkeep_content,
+                commit_message,
+                None,  # No SHA needed for new files
+                self.branch
+            )
+            
+            if success:
+                # Track the directory creation
+                self.modified_files.append({
+                    "file_path": gitkeep_path,
+                    "action": "created",
+                    "branch": self.branch
+                })
+                
+                return {
+                    "success": True,
+                    "message": f"Successfully created directory {full_path} on branch {self.branch}",
+                    "directory_path": full_path,
+                    "gitkeep_file": gitkeep_path,
+                    "branch": self.branch
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to create directory {full_path}"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     def change_dir(self, directory_path: str) -> Dict[str, Any]:
         """
         Change the current working directory
@@ -323,6 +398,20 @@ class AITools:
                 }
             },
             {
+                "name": "make_dir",
+                "description": "Create a new directory with a .gitkeep file to maintain the directory structure",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "directory_path": {
+                            "type": "string",
+                            "description": "Path to the directory to be created"
+                        }
+                    },
+                    "required": ["directory_path"]
+                }
+            },
+            {
                 "name": "change_dir",
                 "description": "Change the current working directory",
                 "input_schema": {
@@ -387,6 +476,8 @@ class AITools:
             return self.update_file(parameters["file_path"], parameters["content"])
         elif tool_name == "add_file":
             return self.add_file(parameters["file_path"], parameters["content"])
+        elif tool_name == "make_dir":
+            return self.make_dir(parameters["directory_path"])
         elif tool_name == "change_dir":
             return self.change_dir(parameters["directory_path"])
         elif tool_name == "finish_task":
