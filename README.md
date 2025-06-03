@@ -100,6 +100,90 @@ To enable automatic processing of Jira tickets:
 4. **Automatic Processing**: Processes all matching tickets in batch mode
 5. **Bidirectional Linking**: Automatically adds comments to Jira tickets with GitHub PR links
 
+### Repository Mapping System
+
+The Jira integration includes a mapping system to connect Jira epics to the correct GitHub repositories and owners:
+
+#### Epic-to-Repository Mapping
+
+Epic names are mapped to specific repository names using the `EPIC_TO_REPO_MAP` in `config.py`:
+
+```python
+EPIC_TO_REPO_MAP = {
+    'Builders - Menu Addition': 'threejs-builder',
+    'User Management System': 'user-auth-api',
+    'Mobile App Features': 'mobile-app',
+    # Add more mappings as needed
+}
+```
+
+**Features:**
+- **Exact Matching**: Epic names that exactly match the map keys use the specified repository
+- **Case Insensitive**: Matching is case-insensitive for flexibility
+- **Partial Matching**: Epic names that contain or are contained within mapped epic names will match (e.g., "Builders Menu" would match "Builders - Menu Addition")
+- **Default Fallback**: Unmapped epics use the `DEFAULT_REPO_NAME` from config
+
+#### Repository-to-Owner Mapping
+
+Different repositories can have different owners using the `REPO_TO_OWNER_MAP`:
+
+```python
+REPO_TO_OWNER_MAP = {
+    'threejs-builder': 'repfitness',
+    'company-website': 'company-org',
+    # Other repos use DEFAULT_OWNER (AJFrio)
+}
+```
+
+**How it works:**
+- Repositories listed in the map use their specified owner
+- Unlisted repositories use the `DEFAULT_OWNER` (AJFrio)
+- This allows working with repositories across different GitHub organizations
+
+#### Mapping Process Flow
+
+1. **Epic Extraction**: Get the epic name from the Jira ticket
+2. **Repository Resolution**: 
+   - Check `EPIC_TO_REPO_MAP` for exact match
+   - If no exact match, try case-insensitive matching
+   - If still no match, try partial matching (substring matching)
+   - If no match found, use `DEFAULT_REPO_NAME`
+3. **Owner Resolution**:
+   - Check `REPO_TO_OWNER_MAP` for the repository
+   - If found, use the mapped owner
+   - If not found, use `DEFAULT_OWNER`
+4. **Final Result**: `owner/repository` (e.g., `repfitness/threejs-builder`)
+
+#### Example Mapping Scenarios
+
+| Epic Name | Mapped Repository | Repository Owner | Final GitHub Repo |
+|-----------|------------------|------------------|-------------------|
+| "Builders - Menu Addition" | threejs-builder | repfitness | repfitness/threejs-builder |
+| "User Management System" | user-auth-api | AJFrio | AJFrio/user-auth-api |
+| "Unmapped Epic Name" | my-default-repo | AJFrio | AJFrio/my-default-repo |
+
+#### Managing Mappings
+
+Use the included utility script to manage your epic mappings:
+
+```bash
+# View current mappings and available epics
+python manage_epic_mappings.py
+
+# Add a new mapping interactively
+python manage_epic_mappings.py --add
+
+# List all epics in your Jira project
+python manage_epic_mappings.py --list-epics
+```
+
+**Benefits of Repository Mapping:**
+- ✅ **Multi-Organization Support**: Work with repositories across different GitHub organizations
+- ✅ **Flexible Epic Names**: Don't need exact epic-to-repo name matching
+- ✅ **Easy Configuration**: Simple dictionary-based configuration
+- ✅ **Partial Matching**: Handles variations in epic naming through substring matching
+- ✅ **Default Fallbacks**: Graceful handling of unmapped epics
+
 ## Usage
 
 ### Basic Usage
