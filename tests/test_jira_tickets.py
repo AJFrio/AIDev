@@ -9,6 +9,8 @@ in a detailed, readable format.
 import sys
 import logging
 from datetime import datetime
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 from jira_client import JiraClient
 

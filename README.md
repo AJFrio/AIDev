@@ -243,6 +243,30 @@ Changes the current working directory for navigation.
 ### `finish_task`
 Signals task completion and exits the coding loop. Requires a summary of what was accomplished and success status.
 
+## Project Structure
+
+```
+AIDev/
+├── main.py                    # Main entry point
+├── config.py                  # Configuration management
+├── ai_assistant.py           # Core AI assistant logic
+├── ai_tools.py               # Tool implementations
+├── github_client.py          # GitHub API client
+├── jira_client.py            # Jira API client
+├── manage_epic_mappings.py   # Epic-to-repo mapping utility
+├── requirements.txt          # Python dependencies
+├── env.example              # Environment variable template
+├── LICENSE                  # MIT license
+├── README.md               # Project documentation
+└── tests/                  # Test files
+    ├── test_jira_tickets.py
+    ├── test_jira_comments.py
+    ├── test_branch_naming.py
+    ├── test_jira_connection.py
+    ├── test_example.py
+    └── debug_env_loading.py
+```
+
 ## Architecture
 
 ```
@@ -256,12 +280,12 @@ Signals task completion and exits the coding loop. Requires a summary of what wa
 │  GitHubClient   │◀───│    AITools       │───▶│     Config      │
 │  (API Client)   │    │  (Tool Handler)  │    │  (Settings)     │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                     ┌──────────────────┐
-                     │   GitHub Repo    │
-                     │  (Branch-based)  │
-                     └──────────────────┘
+                                │                        │
+                                ▼                        ▼
+                     ┌──────────────────┐    ┌─────────────────┐
+                     │   GitHub Repo    │    │   JiraClient    │
+                     │  (Branch-based)  │    │  (API Client)   │
+                     └──────────────────┘    └─────────────────┘
 ```
 
 ## Configuration
@@ -321,9 +345,30 @@ The assistant includes comprehensive error handling for:
 4. Add tests if applicable
 5. Submit a pull request
 
+## Testing
+
+Test files are located in the `tests/` directory:
+
+```bash
+# Test Jira connection and view tickets
+python tests/test_jira_tickets.py
+
+# Test Jira comment functionality  
+python tests/test_jira_comments.py
+
+# Test branch naming for Jira mode
+python tests/test_branch_naming.py
+
+# Debug environment variable loading
+python tests/debug_env_loading.py
+
+# Test basic Jira connection
+python tests/test_jira_connection.py
+```
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 

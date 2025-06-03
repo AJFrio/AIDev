@@ -6,6 +6,8 @@ This script tests the ability to add comments to Jira tickets.
 """
 
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 from jira_client import JiraClient
 
