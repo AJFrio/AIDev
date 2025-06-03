@@ -137,6 +137,68 @@ class AITools:
                 "error": str(e)
             }
     
+    def add_file(self, file_path: str, content: str) -> Dict[str, Any]:
+        """
+        Create a new file with the specified content
+        """
+        try:
+            # Handle relative paths from current directory
+            if self.current_directory and not file_path.startswith(self.current_directory):
+                full_path = f"{self.current_directory}/{file_path}".strip("/")
+            else:
+                full_path = file_path
+            
+            # Check if file already exists
+            existing_sha = self.github_client.get_file_sha(
+                self.repo_owner,
+                self.repo_name,
+                full_path,
+                self.branch
+            )
+            
+            if existing_sha:
+                return {
+                    "success": False,
+                    "error": f"File already exists: {full_path}. Use update_file to modify existing files."
+                }
+            
+            # Create the new file
+            commit_message = f"AI Dev: Add {full_path}"
+            success = self.github_client.update_file_content(
+                self.repo_owner,
+                self.repo_name,
+                full_path,
+                content,
+                commit_message,
+                None,  # No SHA needed for new files
+                self.branch
+            )
+            
+            if success:
+                # Track the file creation
+                self.modified_files.append({
+                    "file_path": full_path,
+                    "action": "created",
+                    "branch": self.branch
+                })
+                
+                return {
+                    "success": True,
+                    "message": f"Successfully created {full_path} on branch {self.branch}",
+                    "branch": self.branch
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to create {full_path}"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
     def change_dir(self, directory_path: str) -> Dict[str, Any]:
         """
         Change the current working directory
@@ -243,6 +305,24 @@ class AITools:
                 }
             },
             {
+                "name": "add_file",
+                "description": "Create a new file with the specified content",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Path to the file to be created"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Content for the new file"
+                        }
+                    },
+                    "required": ["file_path", "content"]
+                }
+            },
+            {
                 "name": "change_dir",
                 "description": "Change the current working directory",
                 "input_schema": {
@@ -305,6 +385,8 @@ class AITools:
             return self.read_file(parameters["file_path"])
         elif tool_name == "update_file":
             return self.update_file(parameters["file_path"], parameters["content"])
+        elif tool_name == "add_file":
+            return self.add_file(parameters["file_path"], parameters["content"])
         elif tool_name == "change_dir":
             return self.change_dir(parameters["directory_path"])
         elif tool_name == "finish_task":
