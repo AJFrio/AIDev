@@ -8,7 +8,19 @@ class Config:
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     GITHUB_API_BASE = 'https://api.github.com'
     
-    # Azure OpenAI settings
+    # Azure OpenAI Low Configuration (Current/Default)
+    AZURE_OPENAI_LOW_API_KEY = os.getenv('AZURE_OPENAI_LOW_API_KEY', os.getenv('AZURE_OPENAI_API_KEY'))
+    AZURE_OPENAI_LOW_ENDPOINT = os.getenv('AZURE_OPENAI_LOW_ENDPOINT', os.getenv('AZURE_OPENAI_ENDPOINT'))
+    AZURE_OPENAI_LOW_DEPLOYMENT = os.getenv('AZURE_OPENAI_LOW_DEPLOYMENT', os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4'))
+    AZURE_OPENAI_LOW_API_VERSION = os.getenv('AZURE_OPENAI_LOW_API_VERSION', os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview'))
+    
+    # Azure OpenAI High Configuration (Premium/High-tier)
+    AZURE_OPENAI_HIGH_API_KEY = os.getenv('AZURE_OPENAI_HIGH_API_KEY')
+    AZURE_OPENAI_HIGH_ENDPOINT = os.getenv('AZURE_OPENAI_HIGH_ENDPOINT')
+    AZURE_OPENAI_HIGH_DEPLOYMENT = os.getenv('AZURE_OPENAI_HIGH_DEPLOYMENT', 'gpt-4')
+    AZURE_OPENAI_HIGH_API_VERSION = os.getenv('AZURE_OPENAI_HIGH_API_VERSION', '2024-02-15-preview')
+    
+    # Legacy Azure OpenAI settings (for backward compatibility)
     AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
     AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT')
     AZURE_OPENAI_DEPLOYMENT = os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4')
@@ -49,8 +61,62 @@ class Config:
     
     @classmethod
     def use_azure_openai(cls) -> bool:
-        """Check if Azure OpenAI is configured"""
+        """Check if Azure OpenAI is configured (legacy method)"""
         return bool(cls.AZURE_OPENAI_API_KEY and cls.AZURE_OPENAI_ENDPOINT)
+    
+    @classmethod
+    def use_azure_openai_low(cls) -> bool:
+        """Check if Azure OpenAI Low configuration is available"""
+        return bool(cls.AZURE_OPENAI_LOW_API_KEY and cls.AZURE_OPENAI_LOW_ENDPOINT)
+    
+    @classmethod
+    def use_azure_openai_high(cls) -> bool:
+        """Check if Azure OpenAI High configuration is available"""
+        return bool(cls.AZURE_OPENAI_HIGH_API_KEY and cls.AZURE_OPENAI_HIGH_ENDPOINT)
+    
+    @classmethod
+    def get_azure_config(cls, tier: str = 'auto') -> dict:
+        """
+        Get Azure OpenAI configuration for the specified tier
+        
+        Args:
+            tier: 'low', 'high', or 'auto' (defaults to high if available, then low, then legacy)
+            
+        Returns:
+            Dictionary with Azure OpenAI configuration
+        """
+        if tier == 'high' and cls.use_azure_openai_high():
+            return {
+                'api_key': cls.AZURE_OPENAI_HIGH_API_KEY,
+                'endpoint': cls.AZURE_OPENAI_HIGH_ENDPOINT,
+                'deployment': cls.AZURE_OPENAI_HIGH_DEPLOYMENT,
+                'api_version': cls.AZURE_OPENAI_HIGH_API_VERSION,
+                'tier': 'high'
+            }
+        elif tier == 'low' and cls.use_azure_openai_low():
+            return {
+                'api_key': cls.AZURE_OPENAI_LOW_API_KEY,
+                'endpoint': cls.AZURE_OPENAI_LOW_ENDPOINT,
+                'deployment': cls.AZURE_OPENAI_LOW_DEPLOYMENT,
+                'api_version': cls.AZURE_OPENAI_LOW_API_VERSION,
+                'tier': 'low'
+            }
+        elif tier == 'auto':
+            # Auto-select: prefer high, then low, then legacy
+            if cls.use_azure_openai_high():
+                return cls.get_azure_config('high')
+            elif cls.use_azure_openai_low():
+                return cls.get_azure_config('low')
+            elif cls.use_azure_openai():
+                return {
+                    'api_key': cls.AZURE_OPENAI_API_KEY,
+                    'endpoint': cls.AZURE_OPENAI_ENDPOINT,
+                    'deployment': cls.AZURE_OPENAI_DEPLOYMENT,
+                    'api_version': cls.AZURE_OPENAI_API_VERSION,
+                    'tier': 'legacy'
+                }
+        
+        return None
     
     @classmethod
     def get_repo_for_epic(cls, epic_name: str) -> str:

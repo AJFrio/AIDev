@@ -50,20 +50,60 @@ An intelligent coding assistant that connects to GitHub repositories and Jira ti
 
 ## Azure OpenAI Setup (Preferred)
 
-If you're using Azure OpenAI Service:
+The system now supports **two separate Azure OpenAI configurations** for different use cases:
 
-1. Go to your Azure OpenAI resource in the Azure portal
-2. Copy the following values:
+### Low Tier Configuration (Default/Budget)
+For general tasks and development work:
+```
+AZURE_OPENAI_LOW_API_KEY=your_azure_openai_low_api_key_here
+AZURE_OPENAI_LOW_ENDPOINT=https://your-low-resource-name.openai.azure.com/
+AZURE_OPENAI_LOW_DEPLOYMENT=gpt-4o-mini
+AZURE_OPENAI_LOW_API_VERSION=2024-02-15-preview
+```
+
+### High Tier Configuration (Premium)
+For complex tasks requiring advanced models:
+```
+AZURE_OPENAI_HIGH_API_KEY=your_azure_openai_high_api_key_here
+AZURE_OPENAI_HIGH_ENDPOINT=https://your-high-resource-name.openai.azure.com/
+AZURE_OPENAI_HIGH_DEPLOYMENT=o3-mini
+AZURE_OPENAI_HIGH_API_VERSION=2024-02-15-preview
+```
+
+### Legacy Configuration (Backward Compatibility)
+For existing setups:
+```
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=gpt-4
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+```
+
+### Setting Up Your Configurations
+
+1. Go to your Azure OpenAI resource(s) in the Azure portal
+2. For each configuration, copy the following values:
    - **Endpoint**: Your resource endpoint URL
    - **API Key**: One of your access keys
    - **Deployment Name**: The name of your deployed model
-3. Add them to your `.env` file:
-   ```
-   AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
-   AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
-   AZURE_OPENAI_DEPLOYMENT=gpt-4
-   AZURE_OPENAI_API_VERSION=2024-02-15-preview
-   ```
+3. Add them to your `.env` file using the appropriate variable names above
+
+### Tier Selection
+
+You can specify which Azure tier to use with the `--azure-tier` option:
+
+```bash
+# Automatically select best available tier (high -> low -> legacy)
+python main.py my-repo "Add validation" --azure-tier auto
+
+# Use low tier configuration
+python main.py my-repo "Simple task" --azure-tier low
+
+# Use high tier configuration  
+python main.py my-repo "Complex refactoring" --azure-tier high
+```
+
+**Default behavior**: `--azure-tier auto` (prefers high tier if available, falls back to low, then legacy)
 
 ## OpenAI API Key Setup (Alternative)
 
@@ -233,6 +273,7 @@ python main.py my-app "Fix typos" --no-pr
 - `--verbose`: Enable detailed output
 - `--jira-mode`: Process all Jira tickets with UseAI label
 - `--test-jira`: Test Jira connection and exit
+- `--azure-tier`: Select Azure OpenAI tier ('auto', 'low', 'high') (default: auto)
 - `--help`: Show help message
 
 ### Advanced Usage
@@ -249,6 +290,12 @@ python main.py my-repo "Quick fix for production" --branch hotfix/urgent --no-pr
 
 # Use verbose mode for debugging
 python main.py my-repo "Debug the authentication flow" --verbose
+
+# Force use of high-tier Azure configuration for complex tasks
+python main.py my-repo "Refactor entire architecture" --azure-tier high
+
+# Use low-tier Azure configuration for simple tasks
+python main.py my-repo "Fix typos in comments" --azure-tier low
 ```
 
 ### Jira Integration Examples

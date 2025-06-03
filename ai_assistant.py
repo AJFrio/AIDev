@@ -9,25 +9,30 @@ from ai_tools import AITools
 
 class AIAssistant:
     def __init__(self, repo_owner: str, repo_name: str, github_token: Optional[str] = None, 
-                 branch_name: Optional[str] = None, objective: Optional[str] = None):
+                 branch_name: Optional[str] = None, objective: Optional[str] = None, azure_tier: str = 'auto'):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         
-        # Initialize OpenAI client (Azure or regular)
-        if Config.use_azure_openai():
-            print("🔷 Using Azure OpenAI")
+        # Initialize OpenAI client with new Azure configuration system
+        azure_config = Config.get_azure_config(azure_tier)
+        
+        if azure_config:
+            tier_display = azure_config['tier']
+            print(f"🔷 Using Azure OpenAI ({tier_display.upper()} tier)")
             self.openai_client = AzureOpenAI(
-                api_key=Config.AZURE_OPENAI_API_KEY,
-                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
-                api_version=Config.AZURE_OPENAI_API_VERSION
+                api_key=azure_config['api_key'],
+                azure_endpoint=azure_config['endpoint'],
+                api_version=azure_config['api_version']
             )
-            self.model_name = Config.AZURE_OPENAI_DEPLOYMENT
+            self.model_name = azure_config['deployment']
+            self.azure_tier = tier_display
         else:
             print("🟢 Using OpenAI")
             if not Config.OPENAI_API_KEY:
                 raise ValueError("No OpenAI configuration found. Please set AZURE_OPENAI_* or OPENAI_API_KEY environment variables.")
             self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
             self.model_name = Config.OPENAI_MODEL
+            self.azure_tier = None
         
         # Initialize GitHub client
         self.github_client = GitHubClient(github_token)

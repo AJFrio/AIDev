@@ -92,6 +92,13 @@ Examples:
         help="Test Jira connection and exit"
     )
     
+    parser.add_argument(
+        "--azure-tier",
+        choices=['auto', 'low', 'high'],
+        default='auto',
+        help="Select Azure OpenAI tier: 'auto' (prefer high, fallback to low), 'low', or 'high' (default: auto)"
+    )
+    
     args = parser.parse_args()
     
     # Set up logging
@@ -119,19 +126,31 @@ Examples:
         print("Error: GitHub token is required. Set GITHUB_TOKEN environment variable or use --github-token")
         sys.exit(1)
     
-    # Check for OpenAI configuration (Azure or regular)
-    if Config.use_azure_openai():
-        if not Config.AZURE_OPENAI_API_KEY or not Config.AZURE_OPENAI_ENDPOINT:
-            print("Error: Azure OpenAI configuration incomplete.")
-            print("Required: AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT")
-            print("Optional: AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_API_VERSION")
-            sys.exit(1)
-        print(f"✅ Azure OpenAI configured (Endpoint: {Config.AZURE_OPENAI_ENDPOINT})")
+    # Check for OpenAI configuration with new multi-tier system
+    azure_config = Config.get_azure_config(args.azure_tier)
+    
+    if azure_config:
+        tier_name = azure_config['tier'].upper()
+        print(f"✅ Azure OpenAI configured ({tier_name} tier)")
+        print(f"   Endpoint: {azure_config['endpoint']}")
+        print(f"   Deployment: {azure_config['deployment']}")
     elif Config.OPENAI_API_KEY:
         print("✅ OpenAI configured")
     else:
         print("Error: No OpenAI configuration found.")
-        print("Either set AZURE_OPENAI_* variables or OPENAI_API_KEY")
+        available_tiers = []
+        if Config.use_azure_openai_high():
+            available_tiers.append("HIGH")
+        if Config.use_azure_openai_low():
+            available_tiers.append("LOW")
+        if Config.use_azure_openai():
+            available_tiers.append("LEGACY")
+        
+        if available_tiers:
+            print(f"Available Azure tiers: {', '.join(available_tiers)}")
+            print("Set the appropriate AZURE_OPENAI_*_* environment variables")
+        else:
+            print("Either set AZURE_OPENAI_* variables or OPENAI_API_KEY")
         sys.exit(1)
     
     # Initialize the AI Dev
@@ -141,7 +160,8 @@ Examples:
             repo_name=args.repo_name,
             github_token=args.github_token,
             branch_name=args.branch,
-            objective=args.objective
+            objective=args.objective,
+            azure_tier=args.azure_tier
         )
         
         print("🤖 AI Coding Assistant")
@@ -246,12 +266,15 @@ def process_jira_tickets(args):
             print("Set GITHUB_TOKEN environment variable or use --github-token")
             sys.exit(1)
         
-        # Check for OpenAI configuration
-        if Config.use_azure_openai():
-            if not Config.AZURE_OPENAI_API_KEY or not Config.AZURE_OPENAI_ENDPOINT:
-                print("❌ Azure OpenAI configuration incomplete.")
-                sys.exit(1)
-        elif not Config.OPENAI_API_KEY:
+        # Check for OpenAI configuration with new multi-tier system
+        azure_config = Config.get_azure_config(args.azure_tier)
+        
+        if azure_config:
+            tier_name = azure_config['tier'].upper()
+            print(f"✅ Using Azure OpenAI ({tier_name} tier) for Jira processing")
+        elif Config.OPENAI_API_KEY:
+            print("✅ Using OpenAI for Jira processing")
+        else:
             print("❌ No OpenAI configuration found.")
             sys.exit(1)
         
@@ -308,7 +331,8 @@ def process_jira_tickets(args):
                     repo_name=ticket['repo'],
                     github_token=args.github_token,
                     branch_name=branch_name,
-                    objective=ticket['objective']
+                    objective=ticket['objective'],
+                    azure_tier=args.azure_tier
                 )
                 
                 # Execute the objective
