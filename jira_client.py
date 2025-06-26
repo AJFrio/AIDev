@@ -66,6 +66,29 @@ class JiraClient:
             logging.error(f"Error fetching tickets with label '{label}': {str(e)}")
             raise
     
+    def get_ticket_by_key(self, ticket_key: str) -> Optional[Dict]:
+        """
+        Get a specific ticket by its key
+        
+        Args:
+            ticket_key: The Jira ticket key (e.g., "REP-123")
+            
+        Returns:
+            Dictionary with ticket information or None if not found
+        """
+        try:
+            # Get the specific issue
+            issue = self.jira.issue(ticket_key, expand='names')
+            
+            ticket_data = self._extract_ticket_data(issue)
+            
+            logging.info(f"Found ticket: {ticket_key}")
+            return ticket_data
+            
+        except Exception as e:
+            logging.error(f"Error fetching ticket '{ticket_key}': {str(e)}")
+            return None
+    
     def _extract_ticket_data(self, issue) -> Dict:
         """
         Extract relevant data from a Jira issue

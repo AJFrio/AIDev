@@ -9,14 +9,19 @@ from ai_tools import AITools
 
 class AIAssistant:
     def __init__(self, repo_owner: str, repo_name: str, github_token: Optional[str] = None, 
-                 branch_name: Optional[str] = None, objective: Optional[str] = None, azure_tier: str = 'auto'):
+                 branch_name: Optional[str] = None, objective: Optional[str] = None, 
+                 azure_tier: str = 'auto', model_provider: str = 'openai', openrouter_model: Optional[str] = None):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         
-        # Initialize OpenAI client with new Azure configuration system
-        azure_config = Config.get_azure_config(azure_tier)
+        # Initialize OpenAI client based on the selected provider
+        self.model_provider = model_provider
         
-        if azure_config:
+        if model_provider == 'azure':
+            azure_config = Config.get_azure_config(azure_tier)
+            if not azure_config:
+                raise ValueError("Azure configuration not found for the specified tier.")
+            
             tier_display = azure_config['tier']
             print(f"🔷 Using Azure OpenAI ({tier_display.upper()} tier)")
             self.openai_client = AzureOpenAI(
@@ -26,10 +31,25 @@ class AIAssistant:
             )
             self.model_name = azure_config['deployment']
             self.azure_tier = tier_display
-        else:
-            print("🟢 Using OpenAI")
+        
+        elif model_provider == 'openrouter':
+            if not Config.OPENROUTER_API_KEY:
+                raise ValueError("OpenRouter API key not found. Please set OPENROUTER_API_KEY environment variable.")
+            
+            print("⚫️ Using OpenRouter")
+            self.openai_client = OpenAI(
+                api_key=Config.OPENROUTER_API_KEY,
+                base_url="https://openrouter.ai/api/v1"
+            )
+            self.model_name = openrouter_model or 'anthropic/claude-3-haiku'
+            print(f"   Model: {self.model_name}")
+            self.azure_tier = None
+            
+        else: # Default to OpenAI
             if not Config.OPENAI_API_KEY:
-                raise ValueError("No OpenAI configuration found. Please set AZURE_OPENAI_* or OPENAI_API_KEY environment variables.")
+                raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY environment variable.")
+            
+            print("🟢 Using OpenAI")
             self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
             self.model_name = Config.OPENAI_MODEL
             self.azure_tier = None
@@ -420,7 +440,7 @@ Continue working until the objective is completed. Be thorough and methodical in
     def _create_pr_description(self, objective: str, branch: str, iterations: int, 
                              ai_summary: str, modified_files: List[Dict[str, str]]) -> str:
         """
-        Create a structured PR description with file changes
+        Create a structured PR description with file changes and single summary
         """
         # Build file changes section
         file_changes_section = ""
@@ -433,63 +453,10 @@ Continue working until the objective is completed. Be thorough and methodical in
         else:
             file_changes_section = "\n**Files Changed:** None\n"
         
-        # Ask AI to provide structured change details if we have modified files
-        change_details = ""
-        if modified_files:
-            if ai_summary:
-                # Create a follow-up prompt to get structured change details
-                structured_prompt = f"""Based on the work you just completed, please provide a detailed bullet-point summary of what was changed in each file. 
-
-Objective: {objective}
-Files modified: {[f['file_path'] for f in modified_files]}
-
-For each file, explain:
-- What specific changes were made
-- Why these changes were necessary 
-- How they contribute to the objective
-
-Format as:
-• filename.ext
-  - Specific change 1
-  - Specific change 2
-  - etc.
-
-Be detailed and specific about the actual code/content changes made."""
-                
-                try:
-                    detailed_response = self.call_openai([
-                        {"role": "system", "content": "You are summarizing the specific changes you just made to files. Be detailed and technical about what was actually modified."},
-                        {"role": "user", "content": structured_prompt}
-                    ])
-                    
-                    if detailed_response.get("content"):
-                        change_details = f"\n**What Was Changed:**\n{detailed_response['content']}\n"
-                    elif detailed_response.get("error"):
-                        # API error, use fallback
-                        change_details = f"\n**What Was Changed:**\n"
-                        for file_info in modified_files:
-                            change_details += f"• `{file_info['file_path']}` - Updated to complete the objective. {ai_summary}\n"
-                        change_details += "\n"
-                    else:
-                        # No content but no error, create basic detail
-                        change_details = f"\n**What Was Changed:**\n"
-                        for file_info in modified_files:
-                            change_details += f"• `{file_info['file_path']}` - {ai_summary}\n"
-                        change_details += "\n"
-                except Exception as e:
-                    # If the detailed summary fails, create a fallback with available info
-                    change_details = f"\n**What Was Changed:**\n"
-                    for file_info in modified_files:
-                        change_details += f"• `{file_info['file_path']}` - Updated to complete the objective: {ai_summary}\n"
-                    change_details += "\n"
-            else:
-                # No AI summary available, create a basic description
-                change_details = f"\n**What Was Changed:**\n"
-                for file_info in modified_files:
-                    change_details += f"• `{file_info['file_path']}` - File was {file_info['action']} to complete the objective\n"
-                change_details += "\n"
-        elif ai_summary:
-            change_details = f"\n**Summary:**\n{ai_summary}\n"
+        # Use the AI summary as a single overall summary (no per-file breakdown)
+        summary_section = ""
+        if ai_summary:
+            summary_section = f"\n**Summary:**\n{ai_summary}\n"
         
         # Build complete PR description
         pr_body = f"""This pull request was created by the AI Dev.
@@ -498,7 +465,7 @@ Be detailed and specific about the actual code/content changes made."""
 
 **Branch:** {branch}
 **Iterations:** {iterations}
-{file_changes_section}{change_details}
+{file_changes_section}{summary_section}
 Please review the changes before merging."""
         
         return pr_body

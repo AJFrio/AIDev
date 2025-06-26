@@ -30,6 +30,9 @@ class Config:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     
+    # OpenRouter settings
+    OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+    
     # Jira settings
     JIRA_URL = os.getenv('JIRA_URL')
     JIRA_USERNAME = os.getenv('JIRA_USERNAME')
