@@ -58,8 +58,8 @@ class Config:
     # Maps repository names to their corresponding GitHub owners/organizations
     REPO_TO_OWNER_MAP = {
         'threejs-builder': 'repfitness',
+        'Rep-Shopify-Theme': 'repfitness',
         # Add more repo-to-owner mappings here as needed
-        # 'some-other-repo': 'different-org',
     }
     
     @classmethod
