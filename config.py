@@ -47,12 +47,14 @@ class Config:
         'Builders - Menu Addition': 'threejs-builder',
         'Builder - New': 'threejs-builder',
         'Builders - Menu Issue': 'threejs-builder',
+        'Commercial': 'Rep-Shopify-Theme',
+        'New Theme 2024': 'Rep-Shopify-Theme',
         # Add more mappings here as needed
         # 'Your Epic Name': 'your-repo-name',
     }
     
     # Default repository name for epics not in the mapping
-    DEFAULT_REPO_NAME = 'Wholesale-Builder'
+    DEFAULT_REPO_NAME = 'Rep-Shopify-Theme'
     
     # Repository to Owner Mapping
     # Maps repository names to their corresponding GitHub owners/organizations
